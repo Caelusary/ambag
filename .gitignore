@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+
+# env files
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# secrets / certs
+*.pem
+*.key
