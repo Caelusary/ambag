@@ -22,3 +22,24 @@ Thumbs.db
 # secrets / certs
 *.pem
 *.key
+
+# editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# claude code: launch.json is shared, local settings/permissions are per-machine
+.claude/settings.local.json
+
+# test / tool output
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# deploy tooling
+.vercel/
+
+# more secrets / certs
+*.p12
+*.pfx
+*.crt
