@@ -2,8 +2,8 @@
 
 :root {
   /* Ground */
-  --color-bg: #f5ead8;
-  --color-surface: #fbf6ec;
+  --color-bg: #f4e9d6;
+  --color-surface: #fffbf4;
   --color-text: #201e1d;
 
   /* Terracotta — primary accent */
@@ -41,19 +41,27 @@
   --color-neutral-800: #3c362d;
   --color-neutral-900: #26221c;
 
+  /* Brick: overdue and rejected, kept apart from the terracotta accent */
+  --color-danger-100: #f8e1dc;
+  --color-danger-600: #b4432f;
+  --color-danger-700: #933526;
+
   /* Type */
   --font-heading: var(--font-caprasimo), serif;
   --font-body: var(--font-figtree), sans-serif;
 
   /* Radius */
-  --radius-base: 16px;
-  --radius-card: 20px;
+  --radius-base: 12px;
+  --radius-card: 14px;
   --radius-pill: 999px;
 
   /* Elevation — warm, low-contrast shadows tuned to the cream ground */
   --shadow-sm: 0 1px 2px rgba(32, 26, 18, 0.06), 0 1px 1px rgba(32, 26, 18, 0.05);
   --shadow-md: 0 4px 10px rgba(32, 26, 18, 0.08), 0 2px 4px rgba(32, 26, 18, 0.06);
   --shadow-lg: 0 12px 28px rgba(32, 26, 18, 0.14), 0 4px 10px rgba(32, 26, 18, 0.08);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @theme inline {
@@ -93,6 +101,12 @@
   --color-neutral-800: var(--color-neutral-800);
   --color-neutral-900: var(--color-neutral-900);
 
+  --color-danger-100: var(--color-danger-100);
+  --color-danger-600: var(--color-danger-600);
+  --color-danger-700: var(--color-danger-700);
+
+  --ease-out: var(--ease-out);
+
   --font-heading: var(--font-heading);
   --font-body: var(--font-body);
 
@@ -113,4 +127,24 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-600);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
