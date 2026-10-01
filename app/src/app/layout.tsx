@@ -16,7 +16,8 @@ const figtree = Figtree({
 
 export const metadata: Metadata = {
   title: "Ambag",
-  description: "Group project task tracker — claim, prove, review, swap.",
+  description:
+    "Group project task tracker: claim tasks, prove the work, review it and swap fairly.",
 };
 
 export const viewport: Viewport = {
