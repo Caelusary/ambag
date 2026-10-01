@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useNow } from "@/lib/clock";
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
 import { Button } from "@/components/ui/Button";
-import { formatDeadline, statusLabel, statusMeta } from "@/lib/types";
+import { Notice } from "@/components/ui/feedback";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { GroupProgress } from "@/components/GroupProgress";
+import { DueBadge } from "@/components/task/DueBadge";
+import { TaskCardHeader } from "@/components/task/TaskCardHeader";
+import { statusLabel, statusMeta } from "@/lib/types";
 
 export default function PoolPage() {
   const { tasks, currentUser, claimTask } = useStore();
@@ -15,53 +21,66 @@ export default function PoolPage() {
   const myTasks = tasks.filter((t) => t.assignee === currentUser);
 
   return (
-    <div className="flex flex-col gap-6">
-      <section>
-        <h2 className="mb-2.5 font-heading text-[15px] text-accent-700">Open for grabs</h2>
-        <div className="flex flex-col gap-3">
-          {openTasks.map((t) => (
-            <Card key={t.id} elevated>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-heading text-[17px] text-text">{t.title}</div>
-                  <div className="mt-0.5 text-[11px] text-neutral-700">Due {formatDeadline(t.deadlineAt, now)}</div>
-                </div>
-                <Tag variant="outline">Open</Tag>
-              </div>
-              <Button block className="mt-3.5" onClick={() => claimTask(t.id)}>
-                Call dibs
-              </Button>
-            </Card>
-          ))}
-          {openTasks.length === 0 && (
-            <div className="text-sm text-neutral-700">No open tasks right now.</div>
-          )}
-        </div>
-      </section>
+    <div className="flex flex-col gap-7 lg:gap-9">
+      <GroupProgress />
 
-      <section>
-        <h2 className="mb-2.5 font-heading text-[15px] text-accent-700">Your tasks</h2>
-        <div className="flex flex-col gap-3">
-          {myTasks.map((t) => (
-            <Link key={t.id} href={`/task/${t.id}`}>
-              <Card interactive elevated>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-heading text-[17px] text-text">{t.title}</div>
-                    <div className="mt-0.5 text-[11px] text-neutral-700">
-                      Due {formatDeadline(t.deadlineAt, now)}
-                    </div>
-                  </div>
-                  <Tag variant={statusMeta(t.status).tagClass}>{statusLabel(t)}</Tag>
+      <div className="flex flex-col gap-7 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+        <section aria-labelledby="open-heading">
+          <SectionHeading id="open-heading" count={openTasks.length}>
+            Open for grabs
+          </SectionHeading>
+          <div className="flex flex-col gap-3">
+            {openTasks.map((t) => (
+              <Card key={t.id} elevated className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <TaskCardHeader
+                    title={t.title}
+                    meta={<DueBadge deadlineAt={t.deadlineAt} now={now} status={t.status} />}
+                  />
                 </div>
+                <Button
+                  size="sm"
+                  aria-label={`Call dibs on ${t.title}`}
+                  onClick={() => claimTask(t.id)}
+                >
+                  Call dibs
+                </Button>
               </Card>
-            </Link>
-          ))}
-          {myTasks.length === 0 && (
-            <div className="text-sm text-neutral-700">You have no tasks yet — claim one above.</div>
-          )}
-        </div>
-      </section>
+            ))}
+            {openTasks.length === 0 && <Notice>No open tasks right now.</Notice>}
+          </div>
+        </section>
+
+        <section aria-labelledby="mine-heading">
+          <SectionHeading id="mine-heading" count={myTasks.length}>
+            Your tasks
+          </SectionHeading>
+          <div className="flex flex-col gap-3">
+            {myTasks.map((t) => (
+              <Link key={t.id} href={`/task/${t.id}`} className="rounded-[var(--radius-card)]">
+                <Card interactive elevated className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <TaskCardHeader
+                      title={t.title}
+                      meta={<DueBadge deadlineAt={t.deadlineAt} now={now} status={t.status} />}
+                      tag={<Tag variant={statusMeta(t.status).tagClass}>{statusLabel(t)}</Tag>}
+                    />
+                  </div>
+                  <ChevronRight
+                    size={18}
+                    strokeWidth={2.5}
+                    aria-hidden="true"
+                    className="shrink-0 text-neutral-500"
+                  />
+                </Card>
+              </Link>
+            ))}
+            {myTasks.length === 0 && (
+              <Notice>You have no tasks yet. Claim one from the open list.</Notice>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
