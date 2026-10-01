@@ -4,6 +4,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { Header } from "./Header";
+import { Sidebar } from "./Sidebar";
 import { TabBar } from "./TabBar";
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -32,13 +33,17 @@ export function Shell({ children }: { children: ReactNode }) {
     title = "Request swap";
     subtitle = task?.title;
   } else if (pathname === "/pool") {
-    subtitle = "Task pool";
+    title = "Task pool";
+    subtitle = "Claim open tasks and keep track of yours";
   } else if (pathname === "/review") {
-    subtitle = "Leader review";
+    title = "Leader review";
+    subtitle = "Submissions waiting for a decision";
   } else if (pathname === "/ledger") {
-    subtitle = "Member ledger";
+    title = "Member ledger";
+    subtitle = "Full visibility, not a scoreboard";
   } else if (pathname === "/share") {
-    subtitle = "Shared read-only view";
+    title = "Share";
+    subtitle = "What your professor sees through the read-only link";
   }
 
   function handleBack() {
@@ -46,11 +51,22 @@ export function Shell({ children }: { children: ReactNode }) {
     else if (isDetail) router.push("/pool");
   }
 
+  // Phones and tablets: header, content, bottom tab bar. From lg up: a sidebar beside a wide
+  // content column, with the tab bar gone. Forms cap their own width; lists use the room.
   return (
-    <div className="flex min-h-dvh w-full justify-center bg-neutral-200 sm:items-center sm:py-8">
-      <div className="flex w-full max-w-[480px] min-h-dvh flex-col bg-bg sm:h-[min(860px,calc(100dvh-4rem))] sm:min-h-0 sm:overflow-hidden sm:rounded-[32px] sm:shadow-lg">
-        <Header title={title} subtitle={subtitle} showBack={isOverlay} onBack={handleBack} />
-        <main className="flex-1 overflow-y-auto p-5">{children}</main>
+    <div className="min-h-dvh bg-bg lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
+      <Sidebar />
+      <div className="flex min-h-dvh min-w-0 flex-col">
+        <Header
+          title={title}
+          subtitle={subtitle}
+          showBack={isOverlay}
+          onBack={handleBack}
+          brand={!isOverlay}
+        />
+        <main className="mx-auto w-full max-w-[640px] flex-1 px-5 py-5 lg:max-w-[1080px] lg:px-10 lg:py-8">
+          {children}
+        </main>
         {!isOverlay && <TabBar />}
       </div>
     </div>
