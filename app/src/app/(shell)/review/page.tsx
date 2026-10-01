@@ -1,22 +1,57 @@
 "use client";
 
 import { useState } from "react";
-import { useStore } from "@/lib/store";
+import { ArrowRight, ShieldCheck } from "lucide-react";
+import { LEADER, useStore } from "@/lib/store";
 import { useNow } from "@/lib/clock";
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
-import { formatDeadline, proofSummary } from "@/lib/types";
+import { Notice } from "@/components/ui/feedback";
+import { FIELD_CONTROL, FieldLabel } from "@/components/ui/fields";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { Avatar } from "@/components/ui/Avatar";
+import { TaskCardHeader } from "@/components/task/TaskCardHeader";
+import { DueBadge } from "@/components/task/DueBadge";
+import { swapApprovalBlocker } from "@/lib/rules";
+import { ProofView } from "@/components/task/ProofView";
+import { REJECT_REASON_MAX, validateRejectReason } from "@/lib/validation";
 
 export default function ReviewPage() {
-  const { tasks, acceptTask, rejectTask } = useStore();
+  const {
+    tasks,
+    swaps,
+    role,
+    currentUser,
+    setCurrentUser,
+    getTask,
+    acceptTask,
+    rejectTask,
+    resolveSwap,
+  } = useStore();
   const now = useNow();
-  const submittedTasks = tasks.filter((t) => t.status === "submitted");
   const [rejectTaskId, setRejectTaskId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
 
-  const rejectTaskObj = rejectTaskId != null ? tasks.find((t) => t.id === rejectTaskId) : null;
+  if (role !== "leader") {
+    return (
+      <Card className="flex flex-col items-start gap-4 lg:max-w-[560px] lg:p-6">
+        <ShieldCheck size={28} strokeWidth={2} aria-hidden="true" className="text-accent-600" />
+        <Notice>
+          Only the group leader reviews work and decides swaps. {LEADER} leads this group, and
+          you&apos;re viewing as {currentUser}.
+        </Notice>
+        <Button variant="secondary" onClick={() => setCurrentUser(LEADER)}>
+          View as {LEADER}
+        </Button>
+      </Card>
+    );
+  }
+
+  const submittedTasks = tasks.filter((t) => t.status === "submitted");
+  const pendingSwaps = swaps.filter((s) => s.status === "pending");
+  const rejectTaskObj = rejectTaskId != null ? getTask(rejectTaskId) : null;
 
   function openReject(id: number) {
     setRejectTaskId(id);
@@ -24,46 +59,133 @@ export default function ReviewPage() {
   }
 
   function confirmReject() {
-    if (rejectTaskId == null || !reason.trim()) return;
-    rejectTask(rejectTaskId, reason.trim());
+    if (rejectTaskId == null) return;
+    const result = validateRejectReason(reason);
+    if (!result.ok) return;
+    rejectTask(rejectTaskId, result.value);
     setRejectTaskId(null);
     setReason("");
   }
 
   return (
-    <div className="relative flex flex-col gap-3.5">
-      <div className="text-[13px] text-neutral-700">Submissions waiting for a decision.</div>
-
-      {submittedTasks.map((t) => (
-        <Card key={t.id} elevated>
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="font-heading text-[17px] text-text">{t.title}</div>
-              <div className="mt-0.5 text-[11px] text-neutral-700">
-                {t.assignee} · Due {formatDeadline(t.deadlineAt, now)}
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="submissions-heading">
+        <SectionHeading id="submissions-heading" count={submittedTasks.length}>
+          Submissions
+        </SectionHeading>
+        <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start lg:gap-5">
+          {submittedTasks.map((t) => (
+            <Card key={t.id} elevated>
+              <TaskCardHeader
+                title={t.title}
+                meta={
+                  <>
+                    {t.assignee && <Person name={t.assignee} />}
+                    <DueBadge deadlineAt={t.deadlineAt} now={now} status={t.status} />
+                  </>
+                }
+                tag={<Tag variant="accent">Submitted</Tag>}
+              />
+              <div className="mt-3 rounded-[var(--radius-base)] bg-bg/70 px-3 py-2.5">
+                <ProofView proof={t.proof} />
               </div>
-            </div>
-            <Tag variant="accent">Submitted</Tag>
-          </div>
-          <div className="mt-2 text-sm text-text">{proofSummary(t.proof)}</div>
-          <div className="mt-3.5 flex gap-2.5">
-            <Button variant="primary" className="flex-1" onClick={() => acceptTask(t.id)}>
-              Accept
-            </Button>
-            <Button variant="secondary" className="flex-1" onClick={() => openReject(t.id)}>
-              Reject
-            </Button>
-          </div>
-        </Card>
-      ))}
+              {t.assignee === currentUser && (
+                <div className="mt-2 text-[12px] text-neutral-700">
+                  Your own task. The shared log will say you reviewed it yourself.
+                </div>
+              )}
+              <div className="mt-3.5 flex gap-2.5">
+                {/* aria-label gives each button a unique name for screen readers. */}
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  aria-label={`Accept ${t.title}`}
+                  onClick={() => acceptTask(t.id)}
+                >
+                  Accept
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  aria-label={`Reject ${t.title}`}
+                  onClick={() => openReject(t.id)}
+                >
+                  Reject
+                </Button>
+              </div>
+            </Card>
+          ))}
+          {submittedTasks.length === 0 && <Notice>Nothing to review right now.</Notice>}
+        </div>
+      </section>
 
-      {submittedTasks.length === 0 && (
-        <div className="text-sm text-neutral-700">Nothing to review right now.</div>
-      )}
+      <section aria-labelledby="swaps-heading">
+        <SectionHeading id="swaps-heading" count={pendingSwaps.length}>
+          Swap requests
+        </SectionHeading>
+        <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start lg:gap-5">
+          {pendingSwaps.map((s) => {
+            const t = getTask(s.taskId);
+            const blocker = swapApprovalBlocker(s, t, now);
+            const ask =
+              s.mode === "targeted"
+                ? `${s.from} wants to hand this to ${s.target}.`
+                : `${s.from} wants to release this back to the pool.`;
+            return (
+              <Card key={s.id} elevated>
+                <TaskCardHeader
+                  title={t?.title ?? "Task no longer exists"}
+                  meta={t && <DueBadge deadlineAt={t.deadlineAt} now={now} status={t.status} />}
+                  tag={<Tag variant="outline">Swap</Tag>}
+                />
+                <div
+                  aria-hidden="true"
+                  className="mt-3 flex items-center gap-2 text-sm font-semibold text-text"
+                >
+                  <Person name={s.from} />
+                  <ArrowRight size={16} strokeWidth={2.5} className="text-neutral-600" />
+                  {s.mode === "targeted" && s.target ? (
+                    <Person name={s.target} />
+                  ) : (
+                    <span className="text-xs font-medium text-neutral-700">Back to the pool</span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm text-neutral-800">{ask}</p>
+                {blocker && (
+                  <p className="mt-2 rounded-[var(--radius-base)] bg-danger-100 px-3 py-2 text-[13px] text-danger-700">
+                    Can&apos;t approve: {blocker}
+                  </p>
+                )}
+                <div className="mt-3.5 flex gap-2.5">
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    disabled={blocker != null}
+                    aria-label={`Approve swap for ${t?.title}`}
+                    onClick={() => resolveSwap(s.id, true)}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    aria-label={`Deny swap for ${t?.title}`}
+                    onClick={() => resolveSwap(s.id, false)}
+                  >
+                    Deny
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+          {pendingSwaps.length === 0 && <Notice>No swap requests waiting.</Notice>}
+        </div>
+      </section>
 
       {rejectTaskObj && (
         <Dialog
           title="Reject submission"
+          onClose={() => setRejectTaskId(null)}
           actions={
             <>
               <Button variant="secondary" className="flex-1" onClick={() => setRejectTaskId(null)}>
@@ -84,18 +206,32 @@ export default function ReviewPage() {
             A reason is required so {rejectTaskObj.assignee} knows what to fix.
           </p>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-neutral-700">Reason</label>
+            <FieldLabel htmlFor="reject-reason">Reason</FieldLabel>
             <textarea
+              id="reject-reason"
               autoFocus
               rows={3}
               placeholder="What needs to change?"
+              maxLength={REJECT_REASON_MAX}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="rounded-[var(--radius-base)] border border-neutral-300 bg-bg p-3 text-sm text-text outline-none focus:border-accent-500"
+              className={`${FIELD_CONTROL} bg-bg`}
             />
+            <div className="text-right text-[11px] text-neutral-700">
+              {reason.length}/{REJECT_REASON_MAX}
+            </div>
           </div>
         </Dialog>
       )}
     </div>
+  );
+}
+
+function Person({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-800">
+      <Avatar name={name} size="sm" />
+      <span>{name}</span>
+    </span>
   );
 }
