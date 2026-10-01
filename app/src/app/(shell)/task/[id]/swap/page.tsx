@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { useRouteTask } from "@/lib/useRouteTask";
+import { SWAP_CUTOFF_HOURS } from "@/lib/constants";
+import { TaskNotFound } from "@/components/task/TaskNotFound";
+import { Notice } from "@/components/ui/feedback";
 import { useNow } from "@/lib/clock";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { formatDeadline, hoursUntil } from "@/lib/types";
+import { canRequestSwap, isInsideSwapCutoff } from "@/lib/rules";
+import { formatDeadline, type SwapMode } from "@/lib/types";
 
-type SwapMode = "targeted" | "release";
 type SwapStep = "choose" | "confirm" | "done";
 
 const MODE_OPTIONS: { value: SwapMode; label: string }[] = [
@@ -18,11 +22,9 @@ const MODE_OPTIONS: { value: SwapMode; label: string }[] = [
 ];
 
 export default function SwapRequestPage() {
-  const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { tasks, members, currentUser, sendSwapRequest } = useStore();
-  const id = Number(params.id);
-  const task = tasks.find((t) => t.id === id);
+  const { members, currentUser, sendSwapRequest } = useStore();
+  const { id, task } = useRouteTask();
 
   const otherMembers = members.filter((m) => m !== currentUser);
   const [mode, setMode] = useState<SwapMode>("targeted");
@@ -32,13 +34,23 @@ export default function SwapRequestPage() {
   // Recompute the deadline window live so a valid request can become blocked.
   const now = useNow();
 
-  if (!task) {
-    return <div className="text-sm text-neutral-700">This task no longer exists.</div>;
+  if (!task) return <TaskNotFound />;
+
+  // Once sent, the task is swap-pending, so only guard before the request goes out.
+  if (step !== "done" && !canRequestSwap(task, currentUser)) {
+    return (
+      <Notice>Only the assignee can request a swap, and only while the task is in progress.</Notice>
+    );
   }
 
-  const blocked = hoursUntil(task.deadlineAt, now) < 48;
+  const blocked = isInsideSwapCutoff(task, now);
 
   function handleConfirm() {
+    // The clock keeps moving while the confirm step is open.
+    if (blocked) {
+      setStep("choose");
+      return;
+    }
     sendSwapRequest(id, mode, mode === "targeted" ? target : null);
     setStep("done");
   }
@@ -48,8 +60,9 @@ export default function SwapRequestPage() {
       ? `Request a swap with ${target} for "${task.title}"?`
       : `Release "${task.title}" back to the pool for anyone to claim?`;
 
+  // A form reads best at a single-column width, so it stays narrow even on desktop.
   return (
-    <div>
+    <div className="lg:max-w-[560px]">
       <Card elevated className="mb-[18px]">
         <div className="font-heading text-[17px] text-text">{task.title}</div>
         <div className="mt-1 text-[13px] text-neutral-700">
@@ -61,8 +74,8 @@ export default function SwapRequestPage() {
         <>
           <Card bordered className="mb-[18px]">
             <div className="text-sm text-accent-700">
-              Swap requests close 48 hours before the deadline — this task is inside that window, so
-              it can&apos;t be swapped.
+              Swap requests close {SWAP_CUTOFF_HOURS} hours before the deadline. This task is inside
+              that window, so it can&apos;t be swapped.
             </div>
           </Card>
           <Button block variant="secondary" disabled>
@@ -73,7 +86,12 @@ export default function SwapRequestPage() {
 
       {!blocked && step === "choose" && (
         <>
-          <SegmentedControl options={MODE_OPTIONS} value={mode} onChange={setMode} />
+          <SegmentedControl
+            label="Swap type"
+            options={MODE_OPTIONS}
+            value={mode}
+            onChange={setMode}
+          />
 
           {mode === "targeted" && (
             <div className="mb-[18px] flex flex-col gap-2.5">
