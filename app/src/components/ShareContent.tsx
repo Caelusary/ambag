@@ -1,62 +1,71 @@
 "use client";
 
 import { Link2 } from "lucide-react";
-import { useStore } from "@/lib/store";
+import { MEMBERS, useStore } from "@/lib/store";
 import { Card } from "@/components/ui/Card";
-import { Tag } from "@/components/ui/Tag";
-import type { StatusMeta, TaskStatus } from "@/lib/types";
+import { Avatar } from "@/components/ui/Avatar";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { GroupProgress } from "@/components/GroupProgress";
 
-const STATUS_ORDER: { status: TaskStatus | "assigned+seen"; label: string; tagClass: StatusMeta["tagClass"] }[] = [
-  { status: "open", label: "Open", tagClass: "outline" },
-  { status: "assigned+seen", label: "Assigned", tagClass: "neutral" },
-  { status: "submitted", label: "Submitted", tagClass: "accent" },
-  { status: "accepted", label: "Accepted", tagClass: "accent-2" },
-  { status: "rejected", label: "Rejected", tagClass: "outline" },
-];
+/** Log lines lead with whoever acted; anything else (system events) gets a plain dot. */
+function actorOf(text: string): string | null {
+  const first = text.split(" ", 1)[0];
+  return MEMBERS.includes(first) ? first : null;
+}
 
 export function ShareContent() {
-  const { tasks, log } = useStore();
+  const { log } = useStore();
 
-  const counts: Record<string, number> = {};
-  tasks.forEach((t) => {
-    counts[t.status] = (counts[t.status] ?? 0) + 1;
-  });
-  const assignedSeen = (counts.assigned ?? 0) + (counts.seen ?? 0);
-
+  // Desktop: the summary on the left, the full log beside it.
   return (
-    <div>
-      <Card tinted="accent-2" className="mb-5">
-        <div className="flex items-center gap-2.5 text-[13px] text-accent-2-800">
-          <Link2 size={16} strokeWidth={2.75} />
-          Shared read-only link — no login required
-        </div>
-      </Card>
-
-      <h2 className="mb-2.5 font-heading text-[15px] text-accent-700">Task board</h2>
-      <div className="mb-6 flex flex-wrap gap-2">
-        {STATUS_ORDER.map((s) => (
-          <Tag key={s.status} variant={s.tagClass}>
-            {s.label}: {s.status === "assigned+seen" ? assignedSeen : (counts[s.status] ?? 0)}
-          </Tag>
-        ))}
-      </div>
-
-      <h2 className="mb-2.5 font-heading text-[15px] text-accent-700">Activity log</h2>
-      <div className="flex flex-col gap-2.5">
-        {log.map((entry) => (
-          <div key={entry.id} className="border-b border-neutral-300 pb-2.5 last:border-b-0">
-            <div className="text-[11px] text-neutral-700">
-              {new Date(entry.ts).toLocaleString("en-US", {
-                weekday: "short",
-                hour: "numeric",
-                minute: "2-digit",
-                timeZone: "UTC",
-              })}
-            </div>
-            <div className="text-sm text-text">{entry.text}</div>
+    <div className="lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-10">
+      <div className="mb-8 flex flex-col gap-4 lg:mb-0">
+        <Card tinted="accent-2">
+          <div className="flex items-center gap-2.5 text-[13px] text-accent-2-800">
+            <Link2 size={16} strokeWidth={2.75} />
+            Shared read-only link. No login required.
           </div>
-        ))}
+        </Card>
+        <GroupProgress />
       </div>
+
+      <section aria-labelledby="activity-heading">
+        <SectionHeading id="activity-heading" count={log.length}>
+          Activity log
+        </SectionHeading>
+        <ol className="relative">
+          {log.map((entry) => {
+            const actor = actorOf(entry.text);
+            return (
+              <li key={entry.id} className="group relative flex gap-3 pb-5 last:pb-0">
+                {/* Connector runs from below this marker to the next one; the last entry has none. */}
+                <span
+                  aria-hidden="true"
+                  className="absolute top-8 bottom-0 left-[15px] w-0.5 -translate-x-1/2 rounded-full bg-neutral-200 group-last:hidden"
+                />
+                <span className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+                  {actor ? (
+                    <Avatar name={actor} size="md" />
+                  ) : (
+                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-neutral-400" />
+                  )}
+                </span>
+                <div className="min-w-0 pt-0.5">
+                  <div className="text-xs text-neutral-700">
+                    {new Date(entry.ts).toLocaleString("en-US", {
+                      weekday: "short",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      timeZone: "UTC",
+                    })}
+                  </div>
+                  <div className="text-sm text-text">{entry.text}</div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
     </div>
   );
 }
