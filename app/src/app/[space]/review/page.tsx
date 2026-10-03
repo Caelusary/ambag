@@ -32,6 +32,7 @@ export default function ReviewPage() {
     acceptTask,
     rejectTask,
     resolveSwap,
+    resolveProofUrl,
   } = useStore();
   const now = useNow();
   const [rejectTaskId, setRejectTaskId] = useState<number | null>(null);
@@ -95,7 +96,7 @@ export default function ReviewPage() {
                 tag={<Tag variant="accent">Submitted</Tag>}
               />
               <div className="mt-3 rounded-[var(--radius-base)] bg-bg/70 px-3 py-2.5">
-                <ProofView proof={t.proof} />
+                <ProofView proof={t.proof} resolveUrl={resolveProofUrl} />
               </div>
               {t.assignee === currentUser && (
                 <div className="mt-2 text-xs text-neutral-700">
