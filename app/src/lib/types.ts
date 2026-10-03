@@ -20,11 +20,13 @@ export interface Proof {
   type: ProofType;
   /** The link, the note, or the file's name. */
   value: string;
-  /**
-   * File proofs only: where to download it. An object URL in the demo, a short-lived signed URL
-   * from private storage for a real group.
-   */
+  /** File proofs in the demo: an object URL for the uploaded file, valid for this browser session. */
   url?: string;
+  /**
+   * File proofs in a real group: where the file sits in private storage. A download link is signed
+   * only when the proof is shown (see StoreValue.resolveProofUrl).
+   */
+  path?: string;
 }
 
 export interface Task {
