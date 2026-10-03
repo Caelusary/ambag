@@ -140,3 +140,47 @@ describe("share links", () => {
     expect(tokens[0]).not.toBe(tokens[1]);
   });
 });
+
+describe("editing and removing tasks", () => {
+  it("lets the leader rename and re-date a task, and logs the old name", () => {
+    const store = setup();
+    act(() => store.current.setCurrentUser("Maya"));
+    act(() => store.current.updateTask(1, "  Design the cover  ", 9_999_999_999_999));
+
+    expect(store.current.getTask(1)).toMatchObject({
+      title: "Design the cover",
+      deadlineAt: 9_999_999_999_999,
+    });
+    expect(store.current.log[0].text).toBe(
+      'Maya edited "Design the cover" (was "Design cover slide")',
+    );
+  });
+
+  it("won't let a member edit, or anyone edit accepted work", () => {
+    const store = setup();
+    act(() => store.current.updateTask(1, "Sneaky", 9_999_999_999_999));
+    expect(store.current.getTask(1)?.title).toBe("Design cover slide");
+
+    act(() => store.current.setCurrentUser("Maya"));
+    act(() => store.current.updateTask(5, "Rewritten", 9_999_999_999_999));
+    expect(store.current.getTask(5)?.title).toBe("Build slide deck");
+  });
+
+  it("removes only work nobody has handed in", () => {
+    const store = setup();
+    act(() => store.current.setCurrentUser("Maya"));
+    act(() => store.current.deleteTask(4));
+    expect(store.current.getTask(4)).toBeDefined();
+
+    act(() => store.current.deleteTask(1));
+    expect(store.current.getTask(1)).toBeUndefined();
+    expect(store.current.log[0].text).toBe('Maya removed "Design cover slide"');
+  });
+
+  it("hands a demo file proof its own object URL", async () => {
+    const store = setup();
+    expect(
+      await store.current.resolveProofUrl({ type: "file", value: "a.pdf", url: "blob:x" }),
+    ).toBe("blob:x");
+  });
+});
