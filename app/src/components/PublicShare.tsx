@@ -1,18 +1,18 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { useStore } from "@/lib/store";
+import { useStore } from "@/lib/store-context";
 import { ShareContent } from "./ShareContent";
 
 const subscribe = () => () => {};
 
 /**
- * The public view only shows the log for a token that exists and hasn't been revoked. Links live
- * in the client store, so the server can't check them: until the page has mounted it renders a
+ * The demo's public view. It only shows the log for a token that exists and hasn't been revoked.
+ * Demo links live in the client store, so the server can't check them: until the page has mounted it renders a
  * neutral placeholder on both sides, which keeps hydration consistent, then decides.
  */
 export function PublicShare({ token }: { token: string }) {
-  const { shareLinks } = useStore();
+  const { shareLinks, tasks, log, members } = useStore();
   const mounted = useSyncExternalStore(
     subscribe,
     () => true,
@@ -34,5 +34,5 @@ export function PublicShare({ token }: { token: string }) {
     );
   }
 
-  return <ShareContent />;
+  return <ShareContent tasks={tasks} log={log} names={members.map((m) => m.name)} />;
 }
