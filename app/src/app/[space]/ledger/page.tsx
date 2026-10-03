@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { LEADER, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store-context";
 import { useNow } from "@/lib/clock";
 import { computeLedger } from "@/lib/rules";
 import { Avatar } from "@/components/ui/Avatar";
 import { Tag } from "@/components/ui/Tag";
 
-const CELL = "px-2.5 py-3 sm:px-4 lg:px-5";
+const CELL = "px-2.5 sm:px-4 lg:px-5";
+const BODY = `${CELL} py-3`;
 
 /** A count that fades out when it's zero, so the numbers that matter stand out. */
 function Count({ value, tone }: { value: number; tone: string }) {
@@ -27,7 +28,7 @@ export default function LedgerPage() {
 
   return (
     <div>
-      <p className="mb-4 text-[13px] text-neutral-700">
+      <p className="mb-4 text-sm text-neutral-700">
         Everyone in the group sees the same numbers. On time and late count accepted work by when
         the proof went in.
       </p>
@@ -65,33 +66,33 @@ export default function LedgerPage() {
               ];
               return (
                 <tr
-                  key={r.name}
+                  key={r.id}
                   className="border-b border-neutral-200 transition-colors duration-150 last:border-b-0 hover:bg-neutral-100/60"
                 >
-                  <th scope="row" className={`${CELL} font-medium text-text`}>
+                  <th scope="row" className={`${BODY} font-medium text-text`}>
                     <span className="flex items-center gap-2">
                       <Avatar name={r.name} size="sm" />
                       <span className="truncate">{r.name}</span>
-                      {r.name === LEADER && (
+                      {members.some((m) => m.id === r.id && m.role === "leader") && (
                         <span className="hidden sm:inline-flex">
                           <Tag variant="accent">Leader</Tag>
                         </span>
                       )}
                     </span>
                   </th>
-                  <td className={CELL}>
+                  <td className={BODY}>
                     <Count value={r.onTime} tone="font-semibold text-accent-2-700" />
                   </td>
-                  <td className={CELL}>
+                  <td className={BODY}>
                     <Count value={r.late} tone="text-text" />
                   </td>
-                  <td className={CELL}>
+                  <td className={BODY}>
                     <Count value={r.overdue} tone="font-semibold text-danger-700" />
                   </td>
-                  <td className={CELL}>
+                  <td className={BODY}>
                     <Count value={r.swaps} tone="text-text" />
                   </td>
-                  <td className={`${CELL} hidden w-[34%] sm:table-cell`}>
+                  <td className={`${BODY} hidden w-[34%] sm:table-cell`}>
                     <div
                       role="img"
                       aria-label={
