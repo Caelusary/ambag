@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
-import { DemoUserSwitch } from "./DemoUserSwitch";
+import { AccountMenu } from "./AccountMenu";
+import { LogoMark } from "./ui/Logo";
 
 export function Header({
   title,
@@ -20,14 +21,15 @@ export function Header({
   // Centred like a native app bar on phones, with the account switcher on the right. On desktop
   // it's a left-aligned page heading, and the sidebar carries the brand and the switcher.
   return (
-    <header className="sticky top-0 z-10 flex-shrink-0 border-b border-neutral-200 bg-bg/95 px-3 py-3 backdrop-blur lg:px-10 lg:py-5">
-      <div className="mx-auto grid max-w-[1080px] grid-cols-[40px_1fr_40px] items-center gap-2 lg:flex lg:gap-3">
-        <div className="flex justify-start">
+    <header className="sticky top-0 z-10 flex-shrink-0 border-b border-neutral-200 bg-bg/95 px-5 py-3 backdrop-blur lg:px-10 lg:py-5">
+      <div className="mx-auto grid max-w-[600px] grid-cols-[36px_1fr_36px] items-center gap-2 lg:flex lg:max-w-[1000px] lg:gap-3">
+        {/* On desktop the slot only exists with a back button, so titles start at the content edge. */}
+        <div className={`flex justify-start ${showBack ? "" : "lg:hidden"}`}>
           {showBack && (
             <button
               onClick={onBack}
               aria-label="Back"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-text transition-colors hover:bg-neutral-200"
+              className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full text-text transition-colors hover:bg-neutral-200"
             >
               <ArrowLeft size={20} strokeWidth={2.75} />
             </button>
@@ -35,7 +37,8 @@ export function Header({
         </div>
         <div className="min-w-0 text-center lg:text-left">
           {brand && (
-            <div className="font-heading text-[12px] leading-none text-accent-700 lg:hidden">
+            <div className="flex items-center justify-center gap-1 font-heading text-xs leading-none text-accent-800 lg:hidden">
+              <LogoMark size={12} />
               Ambag
             </div>
           )}
@@ -53,7 +56,7 @@ export function Header({
           )}
         </div>
         <div className="flex justify-end lg:hidden">
-          <DemoUserSwitch variant="compact" />
+          <AccountMenu variant="compact" />
         </div>
       </div>
     </header>
