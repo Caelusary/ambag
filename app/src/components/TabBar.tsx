@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSpace } from "@/lib/space";
 import { NAV_ITEMS, isNavActive } from "./nav";
 
 /** Phone and tablet navigation. From the lg breakpoint up, the Sidebar takes over. */
 export function TabBar() {
-  const pathname = usePathname();
+  const { base } = useSpace();
+  const pathname = usePathname().slice(base.length) || "/";
 
   return (
     <nav
@@ -18,7 +20,7 @@ export function TabBar() {
         return (
           <Link
             key={href}
-            href={href}
+            href={`${base}${href}`}
             aria-current={active ? "page" : undefined}
             className={`flex min-h-11 flex-1 flex-col items-center gap-1 transition-colors ${
               active ? "font-bold text-accent-800" : "font-medium text-neutral-700"
