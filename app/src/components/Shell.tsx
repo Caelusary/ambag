@@ -2,16 +2,19 @@
 
 import { useParams, usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useStore } from "@/lib/store";
+import { useStore } from "@/lib/store-context";
+import { useSpace } from "@/lib/space";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { TabBar } from "./TabBar";
 
 export function Shell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+  const { base } = useSpace();
+  // Matched without the /demo or /<group id> prefix, so both spaces share the routing below.
+  const pathname = usePathname().slice(base.length) || "/";
   const router = useRouter();
   const params = useParams<{ id?: string }>();
-  const { getTask } = useStore();
+  const { getTask, error, clearError } = useStore();
 
   const taskId = params?.id ? Number(params.id) : null;
   const task = taskId != null ? getTask(taskId) : undefined;
@@ -24,8 +27,8 @@ export function Shell({ children }: { children: ReactNode }) {
   let title = "Ambag";
   let subtitle: string | undefined;
   if (isDetail) {
-    title = task?.title ?? "Ambag";
-    subtitle = "Task detail";
+    // The task's own name heads the summary card just below, so the bar doesn't repeat it.
+    title = "Task detail";
   } else if (isProof) {
     title = "Submit proof";
     subtitle = task?.title;
@@ -47,8 +50,8 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   function handleBack() {
-    if (isProof || isSwap) router.push(`/task/${taskId}`);
-    else if (isDetail) router.push("/pool");
+    if (isProof || isSwap) router.push(`${base}/task/${taskId}`);
+    else if (isDetail) router.push(`${base}/pool`);
   }
 
   // Phones and tablets: header, content, bottom tab bar. From lg up: a sidebar beside a wide
@@ -65,6 +68,20 @@ export function Shell({ children }: { children: ReactNode }) {
           brand={!isOverlay}
         />
         <main className="mx-auto w-full max-w-[640px] flex-1 px-5 py-5 lg:max-w-[1080px] lg:px-10 lg:py-8">
+          {error && (
+            <div
+              role="alert"
+              className="mb-5 flex items-start justify-between gap-3 rounded-[var(--radius-base)] border border-danger-600/30 bg-danger-100 px-4 py-3 text-sm text-danger-700"
+            >
+              {error}
+              <button
+                onClick={clearError}
+                className="shrink-0 font-semibold underline underline-offset-2"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {children}
         </main>
         {!isOverlay && <TabBar />}
