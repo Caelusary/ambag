@@ -2,21 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DemoUserSwitch } from "./DemoUserSwitch";
+import { AccountMenu } from "./AccountMenu";
+import { Wordmark } from "./ui/Logo";
+import { useSpace } from "@/lib/space";
 import { NAV_ITEMS, isNavActive } from "./nav";
 
 /** Desktop navigation, shown from the lg breakpoint up in place of the bottom TabBar. */
 export function Sidebar() {
-  const pathname = usePathname();
+  const { base, groupName } = useSpace();
+  const pathname = usePathname().slice(base.length) || "/";
 
   return (
-    <aside className="sticky top-0 hidden h-dvh flex-col border-r border-neutral-200 bg-surface px-4 py-7 lg:flex">
-      <Link href="/pool" className="px-3 font-heading text-[26px] leading-none text-text">
-        Ambag
+    <aside className="sticky top-0 hidden h-dvh flex-col border-r border-neutral-200 bg-surface px-4 pt-6 pb-6 lg:flex">
+      <Link href={`${base}/pool`} aria-label="Ambag, task pool" className="px-3">
+        <Wordmark />
       </Link>
-      <p className="mt-2.5 px-3 text-[13px] leading-relaxed text-neutral-700">
-        A task counts as done when the proof is in.
-      </p>
+      <p className="mt-2.5 truncate px-3 text-sm font-semibold text-neutral-800">{groupName}</p>
 
       <nav aria-label="Sections" className="mt-8 flex flex-col gap-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
@@ -24,7 +25,7 @@ export function Sidebar() {
           return (
             <Link
               key={href}
-              href={href}
+              href={`${base}${href}`}
               aria-current={active ? "page" : undefined}
               className={`flex min-h-11 items-center gap-3 rounded-[var(--radius-base)] px-3 py-2.5 text-sm transition-colors ${
                 active
@@ -40,7 +41,7 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto rounded-[var(--radius-card)] border border-neutral-200 bg-bg/60 p-3">
-        <DemoUserSwitch variant="full" />
+        <AccountMenu variant="full" />
       </div>
     </aside>
   );
