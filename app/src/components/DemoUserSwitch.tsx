@@ -1,6 +1,6 @@
 "use client";
 
-import { DEMO_ACCOUNTS, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store-context";
 import { Avatar } from "./ui/Avatar";
 
 /**
@@ -11,7 +11,7 @@ import { Avatar } from "./ui/Avatar";
  * header: a transparent native select sits over it, so tapping opens the phone's own picker.
  */
 export function DemoUserSwitch({ variant }: { variant: "full" | "compact" }) {
-  const { currentUser, setCurrentUser } = useStore();
+  const { currentUser, memberName, switchableAccounts, setCurrentUser } = useStore();
 
   const select = (className: string) => (
     <select
@@ -21,8 +21,8 @@ export function DemoUserSwitch({ variant }: { variant: "full" | "compact" }) {
       onChange={(e) => setCurrentUser(e.target.value)}
       className={className}
     >
-      {DEMO_ACCOUNTS.map((a) => (
-        <option key={a.name} value={a.name}>
+      {switchableAccounts.map((a) => (
+        <option key={a.id} value={a.id}>
           {a.name} ({a.role})
         </option>
       ))}
@@ -32,7 +32,7 @@ export function DemoUserSwitch({ variant }: { variant: "full" | "compact" }) {
   if (variant === "compact") {
     return (
       <div className="relative h-9 w-9 rounded-full ring-2 ring-surface">
-        <Avatar name={currentUser} size="lg" />
+        <Avatar name={memberName(currentUser)} size="lg" />
         {select("absolute inset-0 h-full w-full cursor-pointer opacity-0")}
       </div>
     );
@@ -40,15 +40,15 @@ export function DemoUserSwitch({ variant }: { variant: "full" | "compact" }) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor="viewing-as-full" className="text-xs text-neutral-700">
-        Viewing as
-      </label>
-      <div className="flex items-center gap-2.5">
-        <Avatar name={currentUser} size="lg" />
-        {select(
-          "min-h-10 w-full min-w-0 cursor-pointer rounded-[var(--radius-base)] border border-neutral-300 bg-bg px-2.5 py-2 text-sm font-semibold text-text transition-colors hover:border-neutral-400",
-        )}
+      <div className="flex items-center gap-2">
+        <Avatar name={memberName(currentUser)} size="md" />
+        <label htmlFor="viewing-as-full" className="text-xs text-neutral-700">
+          Viewing as
+        </label>
       </div>
+      {select(
+        "min-h-11 w-full min-w-0 cursor-pointer rounded-[var(--radius-base)] border border-neutral-300 bg-bg px-3 py-2 text-sm font-semibold text-text transition-colors hover:border-neutral-400",
+      )}
     </div>
   );
 }
