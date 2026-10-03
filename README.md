@@ -16,7 +16,8 @@ Sign up to run a real group on Supabase, or open the demo from the log-in page t
 - **Contribution ledger** — per-member on-time / late / overdue / swap counts, computed live from the tasks. On time or late is judged by when the proof went in, so a slow review never makes someone late.
 - **Task swaps with a 48-hour rule** — a member asks to hand a task to a teammate or release it to the pool, and the leader approves or denies. Requests close 48 hours before the deadline, and a request that has gone stale (proof already in, or now inside the window) can't be approved.
 - **Accounts and groups** — email and password sign-up. Whoever creates a group leads it and shares an 8-character invite code; teammates join with it. One account can belong to several groups and switch between them.
-- **Live updates** — a teammate's claim, submission or review shows up without reloading.
+- **Live updates** — a teammate's claim, submission or review shows up without reloading, and your own actions show the moment you click, rolling back with a message if the server refuses.
+- **Managing the group** — the leader edits and removes tasks (never handed-in work) and can hand the leader role to a teammate; members can leave, and their unfinished work goes back to the pool.
 - **Demo mode** — "Try the demo" on the log-in page opens a sample group kept in the browser, with a switch between Jamie (member) and Maya (leader) to try both sides of each rule.
 - **Status stepper** — task detail shows a 4-step progression: Assigned → Seen → Submitted → Accepted.
 
@@ -178,6 +179,10 @@ Share tokens are 128 random bits. A token that never existed and one that was re
 |---|---|
 | Only an open task can be claimed, and it goes to the caller | `claim_task` RPC (a database function the client calls), locking the row first |
 | Only the leader adds tasks | `create_task` checks the caller's role in `group_members` |
+| Only the leader edits tasks, and never accepted work | `update_task`, which also requires a future deadline |
+| Only work nobody has handed in can be removed | `delete_task` refuses submitted, rejected and accepted tasks, so proof is never erased |
+| One leader per group, handed over on purpose | `transfer_leadership`, plus a partial unique index on the leader role |
+| Leaving doesn't strand work | `leave_group` returns the leaver's unfinished tasks to the pool and denies their pending swaps; a leader must hand over first |
 | Only the assignee submits proof, and only while assigned, seen or rejected | `submit_proof`, which also checks that an uploaded file is in that task's folder |
 | Only the leader accepts or rejects, and only submitted work | `accept_task` and `reject_task` |
 | A swap request needs the assignee, an in-progress task and no pending request, outside 48 hours | `request_swap`, judged by the database clock, plus a partial unique index for one pending request per task |
@@ -196,7 +201,7 @@ npm --prefix app test
 npx supabase test db
 ```
 
-The app has 122 tests across 12 files:
+The app has 144 tests across 15 files:
 - `lib/rules.test.ts` covers deadline formatting, every permission rule, the 48-hour cutoff boundary, stale swap approvals, and the ledger calculation.
 - `lib/store.test.tsx` covers:
   - claiming, the Seen transition and resubmission after rejection;
@@ -207,6 +212,8 @@ The app has 122 tests across 12 files:
 - `lib/validation.test.ts` covers the link check against scheme tricks and the length limits, and `components/task/ProofView.test.tsx` checks a stored `javascript:` value never renders as a link.
 - `lib/auth-errors.test.ts` checks a crafted `?error=` can't put its own text on the page.
 - `components/PublicShare.test.tsx` checks a live, an unknown and a revoked token, and `components/task/AddTask.test.tsx` covers adding a task.
+- `lib/live-store.test.tsx` runs the live store against a fake Supabase client: an action shows before the server answers, a refusal snaps back with a readable message, raw database errors never reach the page, and proof links are signed once. `lib/optimistic.test.ts` covers each instant update on its own.
+- `components/MembersCard.test.tsx` covers handing over the leader role and leaving.
 - The page tests under `app/[space]/` render each page with the demo store and cover:
   - claiming and the empty states;
   - leader-only review, the reject reason, and Escape closing the dialog with focus returned;
@@ -214,15 +221,13 @@ The app has 122 tests across 12 files:
   - the proof and swap guards, file type checks, and the swap cutoff passing mid-confirm;
   - the Seen transition.
 
-[The database tests](supabase/tests/rules.test.sql) sign in as a leader, a member and an outsider, then run 27 checks: each RPC's rule, the column checks, no direct writes, an outsider seeing nothing, and share links going dark when revoked. CI runs both suites.
+[The database tests](supabase/tests) sign in as a leader, a member and an outsider, then run 46 checks across two files: each RPC's rule, the column checks, no direct writes, an outsider seeing nothing, share links going dark when revoked, editing and removing tasks, handing over the leader role, and someone who left losing access. CI runs both suites.
 
 ## Limitations
 
 Known gaps:
 
 - **A leader's own work has no second reviewer.** The leader can accept their own task; the shared log says so, but nobody else checks it.
-- **The leader can't be handed over.** Each group has one leader, fixed at creation.
-- **Tasks can't be edited or deleted** once added.
 - **Sign-up and log-in limits are per server instance.** They're kept in memory, so they're not exact once the app scales across instances.
 - **Demo data lives in the browser.** A hard refresh resets it, and its share links only work in that browser, apart from `/s/demo`.
 
@@ -231,8 +236,6 @@ Known gaps:
 Not yet implemented:
 
 - A co-reviewer for the leader's own work
-- Handing the leader role to someone else, and leaving a group
-- Editing and deleting tasks
 
 ## License
 
