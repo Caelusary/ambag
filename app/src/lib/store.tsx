@@ -207,6 +207,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [role, appendLog, currentUser],
   );
 
+  const updateTask = useCallback(
+    (id: number, title: string, deadlineAt: number) => {
+      const t = getTask(id);
+      if (role !== "leader" || !t || t.status === "accepted" || !title.trim()) return;
+      setTasks((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, title: title.trim(), deadlineAt } : x)),
+      );
+      const renamed = t.title !== title.trim() ? ` (was "${t.title}")` : "";
+      appendLog(`${currentUser} edited "${title.trim()}"${renamed}`);
+    },
+    [role, getTask, appendLog, currentUser],
+  );
+
+  const deleteTask = useCallback(
+    (id: number) => {
+      const t = getTask(id);
+      if (role !== "leader" || !t || !["open", "assigned", "seen"].includes(t.status)) return;
+      setTasks((prev) => prev.filter((x) => x.id !== id));
+      setSwaps((prev) => prev.filter((s) => s.taskId !== id));
+      appendLog(`${currentUser} removed "${t.title}"`);
+    },
+    [role, getTask, appendLog, currentUser],
+  );
+
+  // Demo files never leave the browser, so the object URL made at upload is the link.
+  const resolveProofUrl = useCallback(async (proof: Proof) => proof.url ?? null, []);
+
   const claimTask = useCallback(
     (id: number) => {
       const t = getTask(id);
@@ -383,6 +410,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       clearError,
       getTask,
       createTask,
+      updateTask,
+      deleteTask,
+      resolveProofUrl,
       claimTask,
       markSeen,
       submitProof,
@@ -405,6 +435,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       clearError,
       getTask,
       createTask,
+      updateTask,
+      deleteTask,
+      resolveProofUrl,
       claimTask,
       markSeen,
       submitProof,
