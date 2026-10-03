@@ -1,5 +1,5 @@
 import { HOUR_MS, SWAP_CUTOFF_HOURS } from "./constants";
-import type { LedgerRow, Role, SwapRequest, Task } from "./types";
+import type { LedgerRow, Member, Role, SwapRequest, Task } from "./types";
 
 /**
  * Every rule about who may do what, in one place. The pages use these to decide what to show,
@@ -63,15 +63,16 @@ export function swapApprovalBlocker(
  * - swaps: swap requests that person made, whatever their outcome.
  */
 export function computeLedger(
-  members: string[],
+  members: Member[],
   tasks: Task[],
   swaps: SwapRequest[],
   now: number,
 ): LedgerRow[] {
-  return members.map((name) => {
-    const theirs = tasks.filter((t) => t.assignee === name);
+  return members.map(({ id, name }) => {
+    const theirs = tasks.filter((t) => t.assignee === id);
     const accepted = theirs.filter((t) => t.status === "accepted" && t.submittedAt != null);
     return {
+      id,
       name,
       onTime: accepted.filter((t) => t.submittedAt! <= t.deadlineAt).length,
       late: accepted.filter((t) => t.submittedAt! > t.deadlineAt).length,
@@ -80,7 +81,7 @@ export function computeLedger(
           (t.status === "assigned" || t.status === "seen" || t.status === "rejected") &&
           t.deadlineAt < now,
       ).length,
-      swaps: swaps.filter((s) => s.from === name).length,
+      swaps: swaps.filter((s) => s.from === id).length,
     };
   });
 }
