@@ -7,7 +7,7 @@ import {
   isInsideSwapCutoff,
   swapApprovalBlocker,
 } from "./rules";
-import { formatDeadline, statusLabel, type SwapRequest, type Task } from "./types";
+import { formatDeadline, statusLabel, type Member, type SwapRequest, type Task } from "./types";
 
 const HOUR = 1000 * 60 * 60;
 const NOW = 1_767_225_600_000;
@@ -126,6 +126,8 @@ describe("swapApprovalBlocker", () => {
   });
 });
 
+const JAMIE: Member = { id: "Jamie", name: "Jamie", role: "member" };
+
 describe("computeLedger", () => {
   it("counts on time and late by submission, not by review", () => {
     const tasks = [
@@ -133,7 +135,7 @@ describe("computeLedger", () => {
       task({ id: 2, status: "accepted", deadlineAt: NOW, submittedAt: NOW + HOUR }),
     ];
 
-    const [jamie] = computeLedger(["Jamie"], tasks, [], NOW + 100 * HOUR);
+    const [jamie] = computeLedger([JAMIE], tasks, [], NOW + 100 * HOUR);
 
     expect(jamie).toMatchObject({ onTime: 1, late: 1 });
   });
@@ -146,7 +148,7 @@ describe("computeLedger", () => {
       task({ id: 4, status: "assigned", deadlineAt: NOW + HOUR }),
     ];
 
-    expect(computeLedger(["Jamie"], tasks, [], NOW)[0].overdue).toBe(2);
+    expect(computeLedger([JAMIE], tasks, [], NOW)[0].overdue).toBe(2);
   });
 
   it("counts every swap request a member made", () => {
@@ -155,6 +157,6 @@ describe("computeLedger", () => {
       { id: 2, taskId: 2, from: "Maya", mode: "release", target: null, status: "pending", ts: NOW },
     ];
 
-    expect(computeLedger(["Jamie"], [], swaps, NOW)[0].swaps).toBe(1);
+    expect(computeLedger([JAMIE], [], swaps, NOW)[0].swaps).toBe(1);
   });
 });
