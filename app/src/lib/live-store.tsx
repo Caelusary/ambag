@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { createClient } from "./supabase/client";
 import { fetchGroupSnapshot, type GroupSnapshot } from "./group-data";
 import { StoreContext, nameIn, type StoreValue } from "./store-context";
+import { optimistic } from "./optimistic";
 import type { Proof, SwapMode } from "./types";
 
 /**
@@ -26,6 +27,11 @@ const KNOWN_ERRORS: Record<string, string> = {
   "only the leader can do that": "Only the group leader can do that.",
   "share link not found": "That share link was already revoked.",
   "task not found": "That task no longer exists.",
+  "accepted work cannot be edited": "Accepted work can't be edited.",
+  "work that has been handed in cannot be removed":
+    "That task has been handed in, so it can't be removed.",
+  "the deadline must be in the future": "Pick a deadline in the future.",
+  "a title of up to 120 characters is required": "Give the task a title of up to 120 characters.",
 };
 const GENERIC_ERROR = "That didn't go through. Check your connection and try again.";
 
@@ -35,6 +41,11 @@ function friendly(error: { message?: string; code?: string } | null): string {
   if (error.code === "23505") return "There's already a swap request waiting on that task.";
   return (error.message && KNOWN_ERRORS[error.message]) || GENERIC_ERROR;
 }
+
+// Long enough to open a proof during a review, short enough that a leaked link soon goes stale.
+const SIGNED_URL_SECONDS = 60 * 60;
+// Reused until five minutes before it expires, so reopening a proof doesn't sign it again.
+const SIGNED_URL_REUSE_MS = (SIGNED_URL_SECONDS - 5 * 60) * 1000;
 
 /** Keeps the file's own name readable in storage while stripping anything path-like. */
 function storageSafeName(name: string): string {
@@ -115,6 +126,20 @@ export function LiveStoreProvider({
     };
   }, [supabase, groupId, refresh]);
 
+  /**
+   * Shows an action's result straight away. Bumping the request counter drops any refetch already
+   * in flight, which would otherwise land a moment later with the old state and flicker it back.
+   */
+  const applyOptimistic = useCallback(
+    (
+      patch: (s: Pick<GroupSnapshot, "tasks" | "swaps">) => Pick<GroupSnapshot, "tasks" | "swaps">,
+    ) => {
+      latestRequest.current += 1;
+      setSnapshot((s) => ({ ...s, ...patch(s) }));
+    },
+    [],
+  );
+
   /** Calls one RPC, reports a refusal, and refetches either way. */
   const call = useCallback(
     async (fn: string, args: Record<string, unknown>) => {
@@ -129,6 +154,26 @@ export function LiveStoreProvider({
       }
     },
     [supabase, refresh],
+  );
+
+  // Signed download links for file proofs, made the first time a proof is shown.
+  const signedUrls = useRef(new Map<string, { url: string; reuseUntil: number }>());
+  const resolveProofUrl = useCallback(
+    async (proof: Proof) => {
+      if (!proof.path) return null;
+      const cached = signedUrls.current.get(proof.path);
+      if (cached && cached.reuseUntil > Date.now()) return cached.url;
+      const { data } = await supabase.storage
+        .from("proofs")
+        .createSignedUrl(proof.path, SIGNED_URL_SECONDS);
+      if (!data?.signedUrl) return null;
+      signedUrls.current.set(proof.path, {
+        url: data.signedUrl,
+        reuseUntil: Date.now() + SIGNED_URL_REUSE_MS,
+      });
+      return data.signedUrl;
+    },
+    [supabase],
   );
 
   const { members, tasks, swaps, log, shareLinks } = snapshot;
@@ -158,11 +203,31 @@ export function LiveStoreProvider({
           p_title: title,
           p_deadline: new Date(deadlineAt).toISOString(),
         }),
-      claimTask: (id: number) => void call("claim_task", { p_task: id }),
-      markSeen: (id: number) => void call("mark_seen", { p_task: id }),
+      updateTask: (id: number, title: string, deadlineAt: number) => {
+        applyOptimistic((s) => optimistic.update(s, id, title, deadlineAt));
+        void call("update_task", {
+          p_task: id,
+          p_title: title,
+          p_deadline: new Date(deadlineAt).toISOString(),
+        });
+      },
+      deleteTask: (id: number) => {
+        applyOptimistic((s) => optimistic.remove(s, id));
+        void call("delete_task", { p_task: id });
+      },
+      resolveProofUrl,
+      claimTask: (id: number) => {
+        applyOptimistic((s) => optimistic.claim(s, id, userId));
+        void call("claim_task", { p_task: id });
+      },
+      markSeen: (id: number) => {
+        applyOptimistic((s) => optimistic.markSeen(s, id, userId));
+        void call("mark_seen", { p_task: id });
+      },
       submitProof: (id: number, proof: Proof, file?: File) =>
         void (async () => {
           if (proof.type !== "file") {
+            applyOptimistic((s) => optimistic.submit(s, id, proof, Date.now()));
             await call("submit_proof", { p_task: id, p_type: proof.type, p_value: proof.value });
             return;
           }
@@ -173,6 +238,9 @@ export function LiveStoreProvider({
             .from("proofs")
             .upload(path, file, { contentType: file.type });
           if (uploadError) return setError("The file couldn't be uploaded. Try again.");
+          applyOptimistic((s) =>
+            optimistic.submit(s, id, { type: "file", value: proof.value, path }, Date.now()),
+          );
           await call("submit_proof", {
             p_task: id,
             p_type: "file",
@@ -180,17 +248,26 @@ export function LiveStoreProvider({
             p_path: path,
           });
         })(),
-      acceptTask: (id: number) => void call("accept_task", { p_task: id }),
-      rejectTask: (id: number, reason: string) =>
-        void call("reject_task", { p_task: id, p_reason: reason }),
-      sendSwapRequest: (id: number, mode: SwapMode, target: string | null) =>
+      acceptTask: (id: number) => {
+        applyOptimistic((s) => optimistic.accept(s, id));
+        void call("accept_task", { p_task: id });
+      },
+      rejectTask: (id: number, reason: string) => {
+        applyOptimistic((s) => optimistic.reject(s, id, reason));
+        void call("reject_task", { p_task: id, p_reason: reason });
+      },
+      sendSwapRequest: (id: number, mode: SwapMode, target: string | null) => {
+        applyOptimistic((s) => optimistic.requestSwap(s, id));
         void call("request_swap", {
           p_task: id,
           p_mode: mode,
           p_target: mode === "targeted" ? target : null,
-        }),
-      resolveSwap: (requestId: number, approve: boolean) =>
-        void call("resolve_swap", { p_request: requestId, p_approve: approve }),
+        });
+      },
+      resolveSwap: (requestId: number, approve: boolean) => {
+        applyOptimistic((s) => optimistic.resolveSwap(s, requestId, approve));
+        void call("resolve_swap", { p_request: requestId, p_approve: approve });
+      },
       createShareLink: () => void call("create_share_link", { p_group: groupId }),
       revokeShareLink: (token: string) => void call("revoke_share_link", { p_token: token }),
     }),
@@ -206,6 +283,8 @@ export function LiveStoreProvider({
       error,
       getTask,
       call,
+      applyOptimistic,
+      resolveProofUrl,
       groupId,
       supabase,
     ],
