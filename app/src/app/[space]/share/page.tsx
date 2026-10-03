@@ -3,6 +3,7 @@
 import { ShareContent } from "@/components/ShareContent";
 import { ShareLinks } from "@/components/ShareLinks";
 import { InviteCard } from "@/components/InviteCard";
+import { MembersCard } from "@/components/MembersCard";
 import { useStore } from "@/lib/store-context";
 
 export default function SharePage() {
@@ -15,6 +16,7 @@ export default function SharePage() {
       controls={
         <>
           <InviteCard />
+          <MembersCard />
           <ShareLinks />
         </>
       }
