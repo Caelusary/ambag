@@ -9,11 +9,21 @@ export type SwapMode = "targeted" | "release";
 
 export type Role = "leader" | "member";
 
+/** Someone in the group. `id` is what tasks and swaps point at; `name` is only for display. */
+export interface Member {
+  id: string;
+  name: string;
+  role: Role;
+}
+
 export interface Proof {
   type: ProofType;
   /** The link, the note, or the file's name. */
   value: string;
-  /** File proofs only: an object URL for the uploaded file, valid for this browser session. */
+  /**
+   * File proofs only: where to download it. An object URL in the demo, a short-lived signed URL
+   * from private storage for a real group.
+   */
   url?: string;
 }
 
@@ -21,6 +31,7 @@ export interface Task {
   id: number;
   title: string;
   status: TaskStatus;
+  /** A member id. */
   assignee: string | null;
   deadlineAt: number;
   proof: Proof | null;
@@ -33,6 +44,7 @@ export interface Task {
 export interface SwapRequest {
   id: number;
   taskId: number;
+  /** Member ids, like Task.assignee. */
   from: string;
   mode: SwapMode;
   /** The teammate who takes the task; null for a release back to the pool. */
@@ -54,6 +66,7 @@ export interface LogEntry {
 }
 
 export interface LedgerRow {
+  id: string;
   name: string;
   onTime: number;
   late: number;
