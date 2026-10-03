@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
-import { LEADER, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store-context";
 import { useNow } from "@/lib/clock";
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
@@ -24,6 +24,9 @@ export default function ReviewPage() {
     swaps,
     role,
     currentUser,
+    members,
+    memberName,
+    switchableAccounts,
     setCurrentUser,
     getTask,
     acceptTask,
@@ -35,16 +38,21 @@ export default function ReviewPage() {
   const [reason, setReason] = useState("");
 
   if (role !== "leader") {
+    const leader = members.find((m) => m.role === "leader");
+    // Only the demo lets you become someone else.
+    const canSwitchToLeader = leader && switchableAccounts.some((a) => a.id === leader.id);
     return (
-      <Card className="flex flex-col items-start gap-4 lg:max-w-[560px] lg:p-6">
+      <Card className="flex flex-col items-start gap-4 lg:max-w-[560px]">
         <ShieldCheck size={28} strokeWidth={2} aria-hidden="true" className="text-accent-600" />
         <Notice>
-          Only the group leader reviews work and decides swaps. {LEADER} leads this group, and
-          you&apos;re viewing as {currentUser}.
+          Only the group leader reviews work and decides swaps. {leader?.name ?? "Nobody"} leads
+          this group, and you&apos;re signed in as {memberName(currentUser)}.
         </Notice>
-        <Button variant="secondary" onClick={() => setCurrentUser(LEADER)}>
-          View as {LEADER}
-        </Button>
+        {canSwitchToLeader && (
+          <Button variant="secondary" onClick={() => setCurrentUser(leader.id)}>
+            View as {leader.name}
+          </Button>
+        )}
       </Card>
     );
   }
@@ -73,14 +81,14 @@ export default function ReviewPage() {
         <SectionHeading id="submissions-heading" count={submittedTasks.length}>
           Submissions
         </SectionHeading>
-        <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start lg:gap-5">
+        <div className="grid gap-3 lg:grid-cols-2 lg:items-start lg:gap-4">
           {submittedTasks.map((t) => (
             <Card key={t.id} elevated>
               <TaskCardHeader
                 title={t.title}
                 meta={
                   <>
-                    {t.assignee && <Person name={t.assignee} />}
+                    {t.assignee && <Person name={memberName(t.assignee)} />}
                     <DueBadge deadlineAt={t.deadlineAt} now={now} status={t.status} />
                   </>
                 }
@@ -90,7 +98,7 @@ export default function ReviewPage() {
                 <ProofView proof={t.proof} />
               </div>
               {t.assignee === currentUser && (
-                <div className="mt-2 text-[12px] text-neutral-700">
+                <div className="mt-2 text-xs text-neutral-700">
                   Your own task. The shared log will say you reviewed it yourself.
                 </div>
               )}
@@ -123,14 +131,14 @@ export default function ReviewPage() {
         <SectionHeading id="swaps-heading" count={pendingSwaps.length}>
           Swap requests
         </SectionHeading>
-        <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start lg:gap-5">
+        <div className="grid gap-3 lg:grid-cols-2 lg:items-start lg:gap-4">
           {pendingSwaps.map((s) => {
             const t = getTask(s.taskId);
             const blocker = swapApprovalBlocker(s, t, now);
             const ask =
               s.mode === "targeted"
-                ? `${s.from} wants to hand this to ${s.target}.`
-                : `${s.from} wants to release this back to the pool.`;
+                ? `${memberName(s.from)} wants to hand this to ${memberName(s.target)}.`
+                : `${memberName(s.from)} wants to release this back to the pool.`;
             return (
               <Card key={s.id} elevated>
                 <TaskCardHeader
@@ -142,17 +150,17 @@ export default function ReviewPage() {
                   aria-hidden="true"
                   className="mt-3 flex items-center gap-2 text-sm font-semibold text-text"
                 >
-                  <Person name={s.from} />
+                  <Person name={memberName(s.from)} />
                   <ArrowRight size={16} strokeWidth={2.5} className="text-neutral-600" />
                   {s.mode === "targeted" && s.target ? (
-                    <Person name={s.target} />
+                    <Person name={memberName(s.target)} />
                   ) : (
                     <span className="text-xs font-medium text-neutral-700">Back to the pool</span>
                   )}
                 </div>
                 <p className="mt-2 text-sm text-neutral-800">{ask}</p>
                 {blocker && (
-                  <p className="mt-2 rounded-[var(--radius-base)] bg-danger-100 px-3 py-2 text-[13px] text-danger-700">
+                  <p className="mt-2 rounded-[var(--radius-base)] bg-danger-100 px-3 py-2 text-sm text-danger-700">
                     Can&apos;t approve: {blocker}
                   </p>
                 )}
@@ -203,7 +211,7 @@ export default function ReviewPage() {
           }
         >
           <p className="mb-3">
-            A reason is required so {rejectTaskObj.assignee} knows what to fix.
+            A reason is required so {memberName(rejectTaskObj.assignee)} knows what to fix.
           </p>
           <div className="flex flex-col gap-1.5">
             <FieldLabel htmlFor="reject-reason">Reason</FieldLabel>
