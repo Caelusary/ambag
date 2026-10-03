@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useStore } from "@/lib/store";
+import { useStore } from "@/lib/store-context";
+import { useSpace } from "@/lib/space";
 import { useRouteTask } from "@/lib/useRouteTask";
 import { SWAP_CUTOFF_HOURS } from "@/lib/constants";
 import { TaskNotFound } from "@/components/task/TaskNotFound";
 import { Notice } from "@/components/ui/feedback";
+import { Avatar } from "@/components/ui/Avatar";
 import { useNow } from "@/lib/clock";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -23,12 +25,14 @@ const MODE_OPTIONS: { value: SwapMode; label: string }[] = [
 
 export default function SwapRequestPage() {
   const router = useRouter();
-  const { members, currentUser, sendSwapRequest } = useStore();
+  const { members, currentUser, memberName, sendSwapRequest } = useStore();
+  const { base } = useSpace();
   const { id, task } = useRouteTask();
 
-  const otherMembers = members.filter((m) => m !== currentUser);
+  const otherMembers = members.filter((m) => m.id !== currentUser);
   const [mode, setMode] = useState<SwapMode>("targeted");
-  const [target, setTarget] = useState(otherMembers[0] ?? "");
+  // A member id.
+  const [target, setTarget] = useState(otherMembers[0]?.id ?? "");
   const [step, setStep] = useState<SwapStep>("choose");
 
   // Recompute the deadline window live so a valid request can become blocked.
@@ -57,23 +61,23 @@ export default function SwapRequestPage() {
 
   const confirmText =
     mode === "targeted"
-      ? `Request a swap with ${target} for "${task.title}"?`
+      ? `Request a swap with ${memberName(target)} for "${task.title}"?`
       : `Release "${task.title}" back to the pool for anyone to claim?`;
 
   // A form reads best at a single-column width, so it stays narrow even on desktop.
   return (
     <div className="lg:max-w-[560px]">
-      <Card elevated className="mb-[18px]">
+      <Card elevated className="mb-5">
         <div className="font-heading text-[17px] text-text">{task.title}</div>
-        <div className="mt-1 text-[13px] text-neutral-700">
+        <div className="mt-1 text-sm text-neutral-700">
           Due {formatDeadline(task.deadlineAt, now)}
         </div>
       </Card>
 
       {blocked && step === "choose" && (
         <>
-          <Card bordered className="mb-[18px]">
-            <div className="text-sm text-accent-700">
+          <Card tinted="danger" className="mb-5">
+            <div className="text-sm text-danger-700">
               Swap requests close {SWAP_CUTOFF_HOURS} hours before the deadline. This task is inside
               that window, so it can&apos;t be swapped.
             </div>
@@ -94,12 +98,15 @@ export default function SwapRequestPage() {
           />
 
           {mode === "targeted" && (
-            <div className="mb-[18px] flex flex-col gap-2.5">
-              {otherMembers.map((m) => (
+            <div className="mb-5 flex flex-col gap-2.5">
+              {otherMembers.length === 0 && (
+                <Notice>Nobody else is in the group yet. Share the invite code first.</Notice>
+              )}
+              {otherMembers.map(({ id: memberId, name }) => (
                 <label
-                  key={m}
+                  key={memberId}
                   className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-base)] border p-3 text-sm transition-colors ${
-                    target === m
+                    target === memberId
                       ? "border-accent-500 bg-accent-100 text-accent-800"
                       : "border-neutral-300 bg-surface text-text"
                   }`}
@@ -107,26 +114,27 @@ export default function SwapRequestPage() {
                   <input
                     type="radio"
                     name="swapTarget"
-                    aria-label={m}
-                    checked={target === m}
-                    onChange={() => setTarget(m)}
+                    aria-label={name}
+                    checked={target === memberId}
+                    onChange={() => setTarget(memberId)}
                     className="sr-only"
                   />
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
-                      target === m ? "border-accent-500" : "border-neutral-400"
+                      target === memberId ? "border-accent-500" : "border-neutral-400"
                     }`}
                   >
-                    {target === m && <span className="h-2 w-2 rounded-full bg-accent-500" />}
+                    {target === memberId && <span className="h-2 w-2 rounded-full bg-accent-500" />}
                   </span>
-                  {m}
+                  <Avatar name={name} size="sm" />
+                  {name}
                 </label>
               ))}
             </div>
           )}
 
           {mode === "release" && (
-            <div className="mb-[18px] text-[13px] text-neutral-700">
+            <div className="mb-5 text-sm text-neutral-700">
               The task returns to the pool for any teammate to claim.
             </div>
           )}
@@ -139,7 +147,7 @@ export default function SwapRequestPage() {
 
       {step === "confirm" && (
         <>
-          <Card className="mb-[18px]">
+          <Card className="mb-5">
             <div className="text-sm text-text">{confirmText}</div>
           </Card>
           <div className="flex gap-2.5">
@@ -155,12 +163,12 @@ export default function SwapRequestPage() {
 
       {step === "done" && (
         <>
-          <Card tinted="accent-2" className="mb-[18px]">
+          <Card tinted="accent-2" className="mb-5">
             <div className="text-sm text-accent-2-800">
               Request sent and logged. Waiting on the leader to approve.
             </div>
           </Card>
-          <Button block onClick={() => router.push(`/task/${id}`)}>
+          <Button block onClick={() => router.push(`${base}/task/${id}`)}>
             Done
           </Button>
         </>
