@@ -13,12 +13,12 @@ export function TaskCardHeader({
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <div className="font-heading text-[17px] leading-snug text-text">{title}</div>
+        <div className="font-heading text-base leading-snug text-text">{title}</div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-neutral-700">
           {meta}
         </div>
       </div>
-      {tag}
+      {tag && <div className="mt-0.5 shrink-0">{tag}</div>}
     </div>
   );
 }
