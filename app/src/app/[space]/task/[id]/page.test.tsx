@@ -118,3 +118,40 @@ describe("task detail page", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 });
+
+describe("leader task controls", () => {
+  it("are hidden from members", () => {
+    renderDetail("1");
+    expect(button("Edit task")).toBeNull();
+    expect(button("Remove task")).toBeNull();
+  });
+
+  it("let the leader rename a task", () => {
+    renderDetail("1");
+    act(() => store.setCurrentUser("Maya"));
+    fireEvent.click(button("Edit task")!);
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Design the cover" } });
+    fireEvent.click(button("Save changes")!);
+
+    expect(store.getTask(1)?.title).toBe("Design the cover");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("let the leader remove an open task after confirming, then go back to the pool", () => {
+    renderDetail("1");
+    act(() => store.setCurrentUser("Maya"));
+    fireEvent.click(button("Remove task")!);
+    const dialog = screen.getByRole("dialog", { name: "Remove this task?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove task" }));
+
+    expect(store.getTask(1)).toBeUndefined();
+    expect(nav.push).toHaveBeenLastCalledWith("/pool");
+  });
+
+  it("offer no remove button once work is handed in", () => {
+    renderDetail("4");
+    act(() => store.setCurrentUser("Maya"));
+    expect(button("Edit task")).not.toBeNull();
+    expect(button("Remove task")).toBeNull();
+  });
+});
