@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useStore } from "@/lib/store";
+import { useStore } from "@/lib/store-context";
+import { useSpace } from "@/lib/space";
 import { useRouteTask } from "@/lib/useRouteTask";
 import { TaskNotFound } from "@/components/task/TaskNotFound";
 import { Notice } from "@/components/ui/feedback";
@@ -29,6 +30,7 @@ const OPTIONS: { value: ProofType; label: string }[] = [
 export default function SubmitProofPage() {
   const router = useRouter();
   const { currentUser, submitProof } = useStore();
+  const { base } = useSpace();
   const { id, task } = useRouteTask();
 
   const [proofType, setProofType] = useState<ProofType>("link");
@@ -71,9 +73,10 @@ export default function SubmitProofPage() {
         setError(checked && !checked.ok ? checked.error : "Choose a file.");
         return;
       }
-      // The file itself stays in this browser session; the reviewer opens it from the URL.
-      submitProof(id, { type: "file", value: checked.value, url: URL.createObjectURL(file) });
-      router.push(`/task/${id}`);
+      // The demo keeps the file in this browser session behind an object URL; a real group
+      // uploads the file itself to private storage.
+      submitProof(id, { type: "file", value: checked.value, url: URL.createObjectURL(file) }, file);
+      router.push(`${base}/task/${id}`);
       return;
     }
     const result = validateProof(proofType, proofValue);
@@ -82,7 +85,7 @@ export default function SubmitProofPage() {
       return;
     }
     submitProof(id, result.value);
-    router.push(`/task/${id}`);
+    router.push(`${base}/task/${id}`);
   }
 
   const inputClass = `${FIELD_CONTROL} bg-surface`;
@@ -90,7 +93,7 @@ export default function SubmitProofPage() {
   // A form reads best at a single-column width, so it stays narrow even on desktop.
   return (
     <div className="lg:max-w-[560px]">
-      <Card elevated className="mb-[18px]">
+      <Card elevated className="mb-5">
         <div className="font-heading text-[17px] text-text">{task.title}</div>
         <div className="mt-1 text-sm text-neutral-700">Attach evidence this task is done.</div>
       </Card>
@@ -102,7 +105,7 @@ export default function SubmitProofPage() {
         onChange={changeType}
       />
 
-      <div className="mb-[18px] flex flex-col gap-1.5">
+      <div className="mb-5 flex flex-col gap-1.5">
         {proofType === "file" && (
           <>
             <FieldLabel htmlFor="proof-file">Upload file</FieldLabel>
@@ -157,7 +160,7 @@ export default function SubmitProofPage() {
           </>
         )}
         {error && (
-          <div id="proof-error" role="alert" className="text-xs text-accent-800">
+          <div id="proof-error" role="alert" className="text-xs text-danger-700">
             {error}
           </div>
         )}
