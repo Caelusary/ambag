@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { useStore } from "@/lib/store";
+import { useStore } from "@/lib/store-context";
+import { useSpace } from "@/lib/space";
 import { useNow } from "@/lib/clock";
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
@@ -12,19 +13,21 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { GroupProgress } from "@/components/GroupProgress";
 import { DueBadge } from "@/components/task/DueBadge";
 import { TaskCardHeader } from "@/components/task/TaskCardHeader";
+import { AddTask } from "@/components/task/AddTask";
 import { statusLabel, statusMeta } from "@/lib/types";
 
 export default function PoolPage() {
-  const { tasks, currentUser, claimTask } = useStore();
+  const { tasks, currentUser, role, claimTask } = useStore();
+  const { base } = useSpace();
   const now = useNow();
   const openTasks = tasks.filter((t) => t.status === "open");
   const myTasks = tasks.filter((t) => t.assignee === currentUser);
 
   return (
-    <div className="flex flex-col gap-7 lg:gap-9">
-      <GroupProgress />
+    <div className="flex flex-col gap-8">
+      <GroupProgress tasks={tasks} />
 
-      <div className="flex flex-col gap-7 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+      <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start">
         <section aria-labelledby="open-heading">
           <SectionHeading id="open-heading" count={openTasks.length}>
             Open for grabs
@@ -47,7 +50,14 @@ export default function PoolPage() {
                 </Button>
               </Card>
             ))}
-            {openTasks.length === 0 && <Notice>No open tasks right now.</Notice>}
+            {openTasks.length === 0 && (
+              <Notice>
+                {role === "leader" && tasks.length === 0
+                  ? "No tasks yet. Add the project's work so teammates can claim it."
+                  : "No open tasks right now."}
+              </Notice>
+            )}
+            <AddTask />
           </div>
         </section>
 
@@ -57,8 +67,12 @@ export default function PoolPage() {
           </SectionHeading>
           <div className="flex flex-col gap-3">
             {myTasks.map((t) => (
-              <Link key={t.id} href={`/task/${t.id}`} className="rounded-[var(--radius-card)]">
-                <Card interactive elevated className="flex items-center gap-2">
+              <Link
+                key={t.id}
+                href={`${base}/task/${t.id}`}
+                className="rounded-[var(--radius-card)]"
+              >
+                <Card interactive elevated className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <TaskCardHeader
                       title={t.title}
