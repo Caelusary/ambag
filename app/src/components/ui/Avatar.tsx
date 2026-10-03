@@ -1,6 +1,4 @@
-import { MEMBERS } from "@/lib/store";
-
-// One muted pair per member, in roster order, so a face reads the same on every page.
+// Muted pairs, picked from the name so a face reads the same on every page and in every group.
 const PALETTE = [
   { bg: "#f4d2b4", fg: "#703a1c" },
   { bg: "#dbe2c9", fg: "#3d4832" },
@@ -12,14 +10,15 @@ const PALETTE = [
 
 const SIZE_CLASS = {
   sm: "h-6 w-6 text-[11px]",
-  md: "h-8 w-8 text-[13px]",
+  md: "h-8 w-8 text-sm",
   lg: "h-9 w-9 text-sm",
 };
 
 /** Initial on a colour fixed to the member. Decorative: the name always appears beside it. */
 export function Avatar({ name, size = "md" }: { name: string; size?: keyof typeof SIZE_CLASS }) {
-  const index = MEMBERS.indexOf(name);
-  const { bg, fg } = PALETTE[(index === -1 ? name.length : index) % PALETTE.length];
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const { bg, fg } = PALETTE[hash % PALETTE.length];
   return (
     <span
       aria-hidden="true"
