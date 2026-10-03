@@ -36,6 +36,10 @@ export interface StoreValue {
   clearError: () => void;
   getTask: (id: number) => Task | undefined;
   createTask: (title: string, deadlineAt: number) => void;
+  /** Leader only, and never accepted work. */
+  updateTask: (id: number, title: string, deadlineAt: number) => void;
+  /** Leader only, and only work nobody has handed in. */
+  deleteTask: (id: number) => void;
   claimTask: (id: number) => void;
   markSeen: (id: number) => void;
   /** `file` is the picked File for a real group, which uploads it before submitting. */
@@ -44,6 +48,8 @@ export interface StoreValue {
   rejectTask: (id: number, reason: string) => void;
   sendSwapRequest: (id: number, mode: SwapMode, target: string | null) => void;
   resolveSwap: (requestId: number, approve: boolean) => void;
+  /** A download link for a file proof, or null if there isn't one. */
+  resolveProofUrl: (proof: Proof) => Promise<string | null>;
   createShareLink: () => void;
   revokeShareLink: (token: string) => void;
 }
