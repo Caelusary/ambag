@@ -1,35 +1,31 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EPOCH } from "./clock";
 import { HOUR_MS as HOUR } from "./constants";
 import { canClaim, canRequestSwap, canReview, canSubmitProof, swapApprovalBlocker } from "./rules";
-import type { LogEntry, Proof, Role, ShareLink, SwapMode, SwapRequest, Task } from "./types";
+import { StoreContext, nameIn, type StoreValue } from "./store-context";
+import type { LogEntry, Member, Proof, ShareLink, SwapMode, SwapRequest, Task } from "./types";
 
-/** The group. Maya leads it; everyone else is a member. */
-export const MEMBERS = ["Jamie", "Maya", "Jordan", "Priya", "Sam", "Alex"];
+export { useStore } from "./store-context";
+
+/**
+ * The demo group, kept entirely in memory. Maya leads it; everyone else is a member. Demo ids are
+ * the names themselves, which only works because nobody here shares a name.
+ */
 export const LEADER = "Maya";
+export const MEMBERS = ["Jamie", "Maya", "Jordan", "Priya", "Sam", "Alex"];
+const DEMO_MEMBERS: Member[] = MEMBERS.map((name) => ({
+  id: name,
+  name,
+  role: name === LEADER ? "leader" : "member",
+}));
 
 /** The accounts the demo lets you switch between: one member, and the leader. */
-export const DEMO_ACCOUNTS: { name: string; role: Role }[] = [
-  { name: "Jamie", role: "member" },
-  { name: LEADER, role: "leader" },
-];
+const DEMO_ACCOUNTS = DEMO_MEMBERS.filter((m) => m.id === "Jamie" || m.id === LEADER);
 
 /** A share link that exists from the start, so /s/demo works without creating one first. */
 export const DEMO_SHARE_TOKEN = "demo";
-
-export function roleOf(name: string): Role {
-  return name === LEADER ? "leader" : "member";
-}
 
 function task(fields: Partial<Task> & Pick<Task, "id" | "title" | "deadlineAt">): Task {
   return {
@@ -161,29 +157,6 @@ function newShareToken(): string {
     .replace(/=+$/, "");
 }
 
-interface StoreValue {
-  currentUser: string;
-  role: Role;
-  setCurrentUser: (name: string) => void;
-  members: string[];
-  tasks: Task[];
-  log: LogEntry[];
-  swaps: SwapRequest[];
-  shareLinks: ShareLink[];
-  getTask: (id: number) => Task | undefined;
-  claimTask: (id: number) => void;
-  markSeen: (id: number) => void;
-  submitProof: (id: number, proof: Proof) => void;
-  acceptTask: (id: number) => void;
-  rejectTask: (id: number, reason: string) => void;
-  sendSwapRequest: (id: number, mode: SwapMode, target: string | null) => void;
-  resolveSwap: (requestId: number, approve: boolean) => void;
-  createShareLink: () => string | null;
-  revokeShareLink: (token: string) => void;
-}
-
-const StoreContext = createContext<StoreValue | null>(null);
-
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUserState] = useState("Jamie");
   const [tasks, setTasks] = useState<Task[]>(() => seedTasks(EPOCH));
@@ -192,7 +165,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [shareLinks, setShareLinks] = useState<ShareLink[]>(() => [
     { token: DEMO_SHARE_TOKEN, createdAt: EPOCH - 48 * HOUR, revokedAt: null },
   ]);
-  const role = roleOf(currentUser);
+  const role = currentUser === LEADER ? "leader" : "member";
+  const memberName = useCallback((id: string | null) => nameIn(DEMO_MEMBERS, id), []);
 
   // Offset between the wall clock and the demo epoch, so new entries land on the same
   // timeline as the seeded ones.
@@ -212,14 +186,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [demoNow],
   );
 
-  const setCurrentUser = useCallback((name: string) => {
-    if (DEMO_ACCOUNTS.some((a) => a.name === name)) setCurrentUserState(name);
+  const setCurrentUser = useCallback((id: string) => {
+    if (DEMO_ACCOUNTS.some((a) => a.id === id)) setCurrentUserState(id);
   }, []);
 
   const getTask = useCallback((id: number) => tasks.find((t) => t.id === id), [tasks]);
 
   // Every action re-checks the rule the page already checked: a double click, a stale tab or a
   // future API caller must not be able to skip it. A backend will need the same checks.
+
+  const createTask = useCallback(
+    (title: string, deadlineAt: number) => {
+      if (role !== "leader" || !title.trim()) return;
+      setTasks((prev) => [
+        ...prev,
+        task({ id: Math.max(0, ...prev.map((x) => x.id)) + 1, title: title.trim(), deadlineAt }),
+      ]);
+      appendLog(`${currentUser} added "${title.trim()}"`);
+    },
+    [role, appendLog, currentUser],
+  );
 
   const claimTask = useCallback(
     (id: number) => {
@@ -269,10 +255,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Judged by when the proof went in: a slow review doesn't make someone late.
       const timing = t.submittedAt != null && t.submittedAt <= t.deadlineAt ? "on time" : "late";
       // The leader can only review their own work themselves, so the shared log says so.
-      const whose = t.assignee === currentUser ? "their own task" : t.assignee;
+      const whose = t.assignee === currentUser ? "their own task" : memberName(t.assignee);
       appendLog(`${currentUser} accepted "${t.title}" (${whose}, ${timing})`);
     },
-    [getTask, appendLog, currentUser, role],
+    [getTask, appendLog, currentUser, role, memberName],
   );
 
   const rejectTask = useCallback(
@@ -291,7 +277,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (id: number, mode: SwapMode, target: string | null) => {
       const t = getTask(id);
       if (!t || !canRequestSwap(t, currentUser)) return;
-      if (mode === "targeted" && (!target || target === currentUser || !MEMBERS.includes(target))) {
+      if (
+        mode === "targeted" &&
+        (!target || target === currentUser || !DEMO_MEMBERS.some((m) => m.id === target))
+      ) {
         return;
       }
       const ts = demoNow();
@@ -354,12 +343,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const createShareLink = useCallback(() => {
-    if (role !== "leader") return null;
+    if (role !== "leader") return;
     const token = newShareToken();
     setShareLinks((prev) => [{ token, createdAt: demoNow(), revokedAt: null }, ...prev]);
     appendLog(`${currentUser} created a new read-only share link`);
-    return token;
   }, [role, demoNow, appendLog, currentUser]);
+
+  const clearError = useCallback(() => {}, []);
 
   const revokeShareLink = useCallback(
     (token: string) => {
@@ -380,13 +370,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     () => ({
       currentUser,
       role,
+      switchableAccounts: DEMO_ACCOUNTS,
       setCurrentUser,
-      members: MEMBERS,
+      members: DEMO_MEMBERS,
+      memberName,
       tasks,
       log,
       swaps,
       shareLinks,
+      // The demo never refuses anything on a server, so there's nothing to report.
+      error: null,
+      clearError,
       getTask,
+      createTask,
       claimTask,
       markSeen,
       submitProof,
@@ -401,11 +397,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       currentUser,
       role,
       setCurrentUser,
+      memberName,
       tasks,
       log,
       swaps,
       shareLinks,
+      clearError,
       getTask,
+      createTask,
       claimTask,
       markSeen,
       submitProof,
@@ -419,10 +418,4 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
-}
-
-export function useStore() {
-  const ctx = useContext(StoreContext);
-  if (!ctx) throw new Error("useStore must be used within a StoreProvider");
-  return ctx;
 }
