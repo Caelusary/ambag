@@ -33,7 +33,7 @@ export function DueBadge({
       ? "bg-danger-100 text-danger-700 px-2 py-0.5 font-semibold"
       : diff < SWAP_CUTOFF_HOURS * HOUR_MS
         ? "bg-accent-100 text-accent-800 px-2 py-0.5 font-semibold"
-        : "text-neutral-700 font-medium";
+        : "bg-neutral-100 text-neutral-800 px-2 py-0.5 font-medium";
 
   return (
     <span className={`inline-flex items-center gap-1 rounded-[var(--radius-pill)] text-xs ${tone}`}>
