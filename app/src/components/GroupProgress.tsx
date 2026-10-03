@@ -1,6 +1,5 @@
 "use client";
 
-import { useStore } from "@/lib/store";
 import type { TaskStatus } from "@/lib/types";
 
 const BUCKETS: { label: string; statuses: TaskStatus[]; swatch: string }[] = [
@@ -11,8 +10,13 @@ const BUCKETS: { label: string; statuses: TaskStatus[]; swatch: string }[] = [
 ];
 
 /** Where the whole group's work stands, as one bar. Shared by the pool and the professor's view. */
-export function GroupProgress({ className = "" }: { className?: string }) {
-  const { tasks } = useStore();
+export function GroupProgress({
+  tasks,
+  className = "",
+}: {
+  tasks: { status: TaskStatus }[];
+  className?: string;
+}) {
   const total = tasks.length;
   const counts = BUCKETS.map((b) => tasks.filter((t) => b.statuses.includes(t.status)).length);
   const accepted = counts[0];
@@ -20,9 +24,9 @@ export function GroupProgress({ className = "" }: { className?: string }) {
   return (
     <section
       aria-labelledby="progress-heading"
-      className={`rounded-[var(--radius-card)] border border-neutral-200 bg-surface p-4 lg:p-5 ${className}`}
+      className={`rounded-[var(--radius-card)] border border-neutral-200 bg-surface p-4 shadow-sm lg:p-5 ${className}`}
     >
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 id="progress-heading" className="font-heading text-[17px] text-text">
           Project progress
         </h2>
