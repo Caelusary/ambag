@@ -14,8 +14,6 @@ export interface GroupSnapshot {
 }
 
 const LOG_LIMIT = 200;
-// Long enough to open a proof during a review, short enough that a leaked URL soon goes stale.
-const SIGNED_URL_SECONDS = 60 * 60;
 
 const ms = (iso: string | null) => (iso == null ? null : Date.parse(iso));
 
@@ -63,20 +61,6 @@ export async function fetchGroupSnapshot(
     (swaps.data ?? []).filter((s) => s.status === "pending").map((s) => s.task_id as number),
   );
 
-  // File proofs live in a private bucket, so each one needs a signed URL to be downloadable.
-  const filePaths = (tasks.data ?? [])
-    .filter((t) => t.proof_type === "file" && t.proof_path)
-    .map((t) => t.proof_path as string);
-  const signed = new Map<string, string>();
-  if (filePaths.length > 0) {
-    const { data } = await supabase.storage
-      .from("proofs")
-      .createSignedUrls(filePaths, SIGNED_URL_SECONDS);
-    for (const entry of data ?? []) {
-      if (entry.path && entry.signedUrl) signed.set(entry.path, entry.signedUrl);
-    }
-  }
-
   return {
     fetchedAt: Date.now(),
     group: { id: group.data.id, name: group.data.name, inviteCode: group.data.invite_code },
@@ -95,7 +79,7 @@ export async function fetchGroupSnapshot(
         ? {
             type: t.proof_type,
             value: t.proof_value ?? "",
-            url: t.proof_path ? signed.get(t.proof_path) : undefined,
+            path: t.proof_path ?? undefined,
           }
         : null,
       submittedAt: ms(t.submitted_at),
