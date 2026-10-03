@@ -121,26 +121,20 @@ describe("store rules", () => {
 describe("share links", () => {
   it("won't let a member create or revoke a link", () => {
     const store = setup();
-    let token: string | null = "unset";
-    act(() => {
-      token = store.current.createShareLink();
-    });
+    act(() => store.current.createShareLink());
     act(() => store.current.revokeShareLink("demo"));
 
-    expect(token).toBeNull();
+    expect(store.current.shareLinks).toHaveLength(1);
     expect(store.current.shareLinks.every((l) => l.revokedAt == null)).toBe(true);
   });
 
   it("gives the leader a fresh, unguessable token each time", () => {
     const store = setup();
     act(() => store.current.setCurrentUser("Maya"));
-    const tokens: (string | null)[] = [];
-    act(() => {
-      tokens.push(store.current.createShareLink());
-    });
-    act(() => {
-      tokens.push(store.current.createShareLink());
-    });
+    act(() => store.current.createShareLink());
+    act(() => store.current.createShareLink());
+    // Newest first, with the seeded demo link last.
+    const tokens = store.current.shareLinks.slice(0, 2).map((l) => l.token);
 
     expect(tokens[0]).toMatch(/^[A-Za-z0-9_-]{22}$/);
     expect(tokens[0]).not.toBe(tokens[1]);
