@@ -49,3 +49,35 @@ export async function rotateInviteCode(groupId: string): Promise<string | null> 
   revalidatePath(`/${groupId}`, "layout");
   return data;
 }
+
+/** Hands the leader role to a teammate. Returns a message when the database refuses. */
+export async function transferLeadership(
+  groupId: string,
+  toUserId: string,
+): Promise<string | null> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("transfer_leadership", { p_group: groupId, p_to: toUserId });
+  if (error) {
+    return error.message === "pick a teammate in this group"
+      ? "Pick a teammate who's still in the group."
+      : "Couldn't hand over the leader role. Try again.";
+  }
+  revalidatePath(`/${groupId}`, "layout");
+  return null;
+}
+
+/**
+ * Leaves a group. Unfinished work goes back to the pool; accepted work stays credited. Returns a
+ * message when refused, and otherwise sends you on to your next group or to onboarding.
+ */
+export async function leaveGroup(groupId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("leave_group", { p_group: groupId });
+  if (error) {
+    return error.message === "hand the leader role to someone first"
+      ? "Hand the leader role to someone before you leave."
+      : "Couldn't leave the group. Try again.";
+  }
+  revalidatePath("/", "layout");
+  redirect("/");
+}
