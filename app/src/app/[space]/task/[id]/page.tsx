@@ -14,13 +14,14 @@ import { Stepper } from "@/components/ui/Stepper";
 import { Avatar } from "@/components/ui/Avatar";
 import { DueBadge } from "@/components/task/DueBadge";
 import { ProofView } from "@/components/task/ProofView";
+import { TaskAdmin } from "@/components/task/TaskAdmin";
 import { canClaim, canRequestSwap, canSubmitProof, isInsideSwapCutoff } from "@/lib/rules";
 import { statusLabel, statusMeta, statusRank } from "@/lib/types";
 import { SWAP_CUTOFF_HOURS } from "@/lib/constants";
 
 export default function TaskDetailPage() {
   const router = useRouter();
-  const { currentUser, memberName, claimTask, markSeen } = useStore();
+  const { currentUser, memberName, claimTask, markSeen, resolveProofUrl } = useStore();
   const { base } = useSpace();
   const { id, task } = useRouteTask();
   const now = useNow();
@@ -98,7 +99,7 @@ export default function TaskDetailPage() {
         {task.proof && (
           <Card className="mb-5">
             <h2 className="mb-1.5 font-heading text-[17px] text-text">Submitted proof</h2>
-            <ProofView proof={task.proof} />
+            <ProofView proof={task.proof} resolveUrl={resolveProofUrl} />
           </Card>
         )}
       </div>
@@ -144,6 +145,7 @@ export default function TaskDetailPage() {
             Nothing for you to do here. This task belongs to {memberName(task.assignee)}.
           </div>
         )}
+        <TaskAdmin task={task} />
       </div>
     </div>
   );
