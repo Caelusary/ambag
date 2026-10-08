@@ -76,7 +76,7 @@ export function AccountMenu({ variant }: { variant: "full" | "compact" }) {
           aria-label={`${name}: switch group or log out`}
           value={groupId ?? ""}
           onChange={(e) => choose(e.target.value)}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          className="absolute -inset-1 cursor-pointer opacity-0"
         >
           {options}
         </select>
