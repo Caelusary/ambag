@@ -33,7 +33,7 @@ export function DemoUserSwitch({ variant }: { variant: "full" | "compact" }) {
     return (
       <div className="relative h-9 w-9 rounded-full ring-2 ring-surface">
         <Avatar name={memberName(currentUser)} size="lg" />
-        {select("absolute inset-0 h-full w-full cursor-pointer opacity-0")}
+        {select("absolute -inset-1 cursor-pointer opacity-0")}
       </div>
     );
   }
