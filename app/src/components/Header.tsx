@@ -29,7 +29,7 @@ export function Header({
             <button
               onClick={onBack}
               aria-label="Back"
-              className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full text-text transition-colors hover:bg-neutral-200"
+              className="relative -ml-2 flex h-9 w-9 items-center justify-center rounded-full text-text transition-colors before:absolute before:-inset-1 before:content-[''] hover:bg-neutral-200"
             >
               <ArrowLeft size={20} strokeWidth={2.75} />
             </button>
